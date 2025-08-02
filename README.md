@@ -15,11 +15,23 @@ A terminal-based Tamagotchi simulation written in Go, featuring a beautiful TUI 
 
 ## Installation
 
-### Prerequisites
+### Homebrew (recommended, after release)
 
-- Go 1.24.0 or later
+```sh
+brew tap ezeoleaf/tap
+brew install termagotchi
+```
+
+### Download a Release
+
+- Go to [Releases](https://github.com/ezeoleaf/termagotchi/releases) and download the binary for your OS.
+- Unpack and move it to a directory in your `$PATH` (e.g., `/usr/local/bin`).
 
 ### Build from Source
+
+#### Prerequisites
+
+- Go 1.24.0 or later
 
 ```bash
 git clone <repository-url>
