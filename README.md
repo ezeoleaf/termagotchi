@@ -2,6 +2,9 @@
 
 A terminal-based Tamagotchi simulation written in Go, featuring a beautiful TUI interface.
 
+<img width="1188" height="725" alt="Screenshot from 2025-08-10 13-41-38" src="https://github.com/user-attachments/assets/f92eae52-0a2e-4816-ac62-e047cfae801d" />
+
+
 ## Features
 
 - 🎮 **Interactive TUI**: Beautiful terminal user interface with keyboard navigation
