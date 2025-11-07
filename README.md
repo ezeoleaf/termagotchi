@@ -1,6 +1,6 @@
 # Termagotchi 🐾
 
-A terminal-based Tamagotchi simulation written in Go, featuring a beautiful TUI interface.
+A terminal-based Tamagotchi simulation written in Go, featuring a simple and hacky TUI interface.
 
 ## Features
 
@@ -122,6 +122,25 @@ The game automatically saves your progress to:
 - **macOS**: `~/Library/Application Support/termagotchi/config.yml`
 - **Linux**: `~/.config/termagotchi/config.yml`
 - **Windows**: `%APPDATA%\termagotchi\config.yml`
+
+## Screenshots
+
+Home
+
+<img width="782" height="450" alt="image" src="https://github.com/user-attachments/assets/39cf86c2-a318-4140-8e07-ba252d38f3c3" />
+
+Feed
+
+<img width="785" height="448" alt="image" src="https://github.com/user-attachments/assets/58d7897f-c55a-42e0-8a5f-072ebce347e4" />
+
+Play
+
+<img width="782" height="450" alt="image" src="https://github.com/user-attachments/assets/edffe7be-4c00-4e03-8c4c-ca6e2ce6e2af" />
+
+
+Help
+
+<img width="1025" height="647" alt="image" src="https://github.com/user-attachments/assets/ccad0600-d168-4d6f-bb90-10fcd366d78f" />
 
 ## Development
 
