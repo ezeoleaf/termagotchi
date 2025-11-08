@@ -19,6 +19,7 @@ type App struct {
 	TLayout           *tview.Flex
 	Config            *config.Config
 	viewsList         map[string]*tview.List
+	spriteView        *tview.TextView
 	currentTamagotchi *Tamagotchi
 	gameEvents        []GameEvent
 	modal             *tview.Modal
@@ -324,6 +325,9 @@ func (a *App) refreshUI() {
 	a.TApp.QueueUpdateDraw(func() {
 		if list := a.viewsList["status"]; list != nil {
 			a.generateStatusList(list)
+		}
+		if a.spriteView != nil {
+			a.updateSpriteView(a.spriteView)
 		}
 		if list := a.viewsList["feed"]; list != nil {
 			a.generateFeedList(list)

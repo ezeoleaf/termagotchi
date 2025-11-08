@@ -14,6 +14,9 @@ func (a *App) generateStatusList(listStatus *tview.List) {
 	t, ok := a.tamagotchiSnapshot()
 	if !ok {
 		listStatus.AddItem("No tamagotchi data available.", "", 0, nil)
+		if a.spriteView != nil {
+			a.spriteView.SetText("\n  ??\n")
+		}
 		return
 	}
 
@@ -93,6 +96,16 @@ func (a *App) generateStatusList(listStatus *tview.List) {
 	}
 }
 
+func (a *App) updateSpriteView(view *tview.TextView) {
+	t, ok := a.tamagotchiSnapshot()
+	if !ok {
+		view.SetText("\n  ??\n")
+		return
+	}
+
+	view.SetText(renderTamagotchiSprite(t))
+}
+
 func (a *App) createProgressBar(current, max int) string {
 	const barLength = 20
 	filled := (current * barLength) / max
@@ -113,9 +126,198 @@ func (a *App) statusPage() (title string, content tview.Primitive) {
 
 	a.generateStatusList(listStatus)
 
+	if a.spriteView == nil {
+		view := tview.NewTextView().
+			SetTextAlign(tview.AlignCenter).
+			SetDynamicColors(true)
+		view.SetBorder(true).SetTitle("Current Form")
+		a.spriteView = view
+	}
+	a.updateSpriteView(a.spriteView)
+
+	layout := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(listStatus, 0, 2, true).
+		AddItem(a.spriteView, 0, 1, false)
+
 	title = statusSection
-	return title, tview.NewFlex().
-		AddItem(tview.NewFlex().
-			SetDirection(tview.FlexRow).
-			AddItem(listStatus, 0, 1, true), 0, 1, true)
+	return title, layout
+}
+
+func renderTamagotchiSprite(t Tamagotchi) string {
+	mood := spriteMood(t.Happiness, t.Health, t.Energy, t.IsAlive)
+	stage := t.Stage
+	if stage == "" {
+		stage = "egg"
+	}
+
+	switch stage {
+	case "egg":
+		return eggSprites[mood]
+	case "baby":
+		return babySprites[mood]
+	case "child":
+		return childSprites[mood]
+	case "teen":
+		return teenSprites[mood]
+	default:
+		return adultSprites[mood]
+	}
+}
+
+func spriteMood(happiness, health, energy int, alive bool) string {
+	if !alive || health <= 0 {
+		return "dead"
+	}
+	switch {
+	case happiness > 75 && health > 75 && energy > 60:
+		return "happy"
+	case happiness < 25 || health < 25 || energy < 20:
+		return "sad"
+	default:
+		return "neutral"
+	}
+}
+
+var eggSprites = map[string]string{
+	"dead": `
+  ⭕
+ /XX\
+ \__/
+`,
+	"sad": `
+  ⭕
+ /..\
+ \__/
+`,
+	"happy": `
+  ⭕
+ /^^\
+ \__/
+`,
+	"neutral": `
+  ⭕
+ /--\
+ \__/
+`,
+}
+
+var babySprites = map[string]string{
+	"dead": `
+   __
+ _(xx)_
+(      )
+ \_/\_/
+`,
+	"sad": `
+   __
+ _(..)_ 
+(  -- )
+ \_/\_/
+`,
+	"happy": `
+   __
+ _(^^)_ 
+(  \/ )
+ \_/\_/
+`,
+	"neutral": `
+   __
+ _(--)_ 
+(  \/ )
+ \_/\_/
+`,
+}
+
+var childSprites = map[string]string{
+	"dead": `
+  /\_/\
+ ( x x )
+ /  ^  \
+ \__=__/
+`,
+	"sad": `
+  /\_/\
+ ( - - )
+ /  ^  \
+ \__~__/
+`,
+	"happy": `
+  /\_/\
+ ( ^ ^ )
+ /  v  \
+ \__~__/
+`,
+	"neutral": `
+  /\_/\
+ ( o o )
+ /  v  \
+ \__~__/
+`,
+}
+
+var teenSprites = map[string]string{
+	"dead": `
+   /\_/\
+  ( x x )
+  /| ^ |\
+ /_|___|_\
+    |_|
+`,
+	"sad": `
+   /\_/\
+  ( - - )
+  /| ^ |\
+ /_|___|_\
+    |_|
+`,
+	"happy": `
+   /\_/\
+  ( ^ ^ )
+  /| v |\
+ /_|___|_\
+    |_|
+`,
+	"neutral": `
+   /\_/\
+  ( o o )
+  /| v |\
+ /_|___|_\
+    |_|
+`,
+}
+
+var adultSprites = map[string]string{
+	"dead": `
+   /\___/\
+  ( x   x )
+  /|  ^  |\
+ /_| --- |_\
+    /   \ 
+   _\   /_
+`,
+	"sad": `
+   /\___/\
+  ( -   - )
+  /|  ^  |\
+ /_| ___ |_\
+    /   \ 
+   _\   /_
+`,
+	"happy": `
+   /\___/\
+  ( ^   ^ )
+  /|  v  |\
+ /_| ___ |_\
+    /   \ 
+   _\   /_
+`,
+	"neutral": `
+   /\___/\
+  ( o   o )
+  /|  v  |\
+ /_| ___ |_\
+    /   \ 
+   _\   /_
+`,
 }
