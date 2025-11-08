@@ -29,14 +29,20 @@ var availableGames = []Game{
 func (a *App) generatePlayList(listPlay *tview.List) {
 	listPlay.Clear()
 
-	if !a.currentTamagotchi.IsAlive {
+	t, ok := a.tamagotchiSnapshot()
+	if !ok {
+		listPlay.AddItem("No tamagotchi available.", "", 0, nil)
+		return
+	}
+
+	if !t.IsAlive {
 		listPlay.AddItem("Your tamagotchi has passed away... 💔", "", 0, nil)
 		listPlay.AddItem("Cannot play with a dead tamagotchi", "", 0, nil)
 		return
 	}
 
 	// Check if tamagotchi has enough energy to play
-	if a.currentTamagotchi.Energy < 10 {
+	if t.Energy < 10 {
 		listPlay.AddItem("😴 Your tamagotchi is too tired to play!", "", 0, nil)
 		listPlay.AddItem("Try putting it to sleep first (Ctrl+L)", "", 0, nil)
 		listPlay.AddItem("", "", 0, nil) // Empty line
@@ -59,59 +65,50 @@ func (a *App) generatePlayList(listPlay *tview.List) {
 				game.Name, game.Happiness, energyChange, game.Health, game.WeightLoss),
 			"",
 			0,
-			func() {
-				a.playWithTamagotchi(gameIndex)
-				a.generatePlayList(listPlay)
-			},
+			func() { a.playWithTamagotchi(gameIndex) },
 		)
 	}
 
 	listPlay.AddItem("", "", 0, nil) // Empty line
 	listPlay.AddItem("=== PLAYING INFO ===", "", 0, nil)
-	listPlay.AddItem(fmt.Sprintf("Current Happiness: %d/100", a.currentTamagotchi.Happiness), "", 0, nil)
-	listPlay.AddItem(fmt.Sprintf("Current Energy: %d/100", a.currentTamagotchi.Energy), "", 0, nil)
-	listPlay.AddItem(fmt.Sprintf("Current Weight: %.1f grams", a.currentTamagotchi.Weight), "", 0, nil)
-	listPlay.AddItem(fmt.Sprintf("Last Play: %s", a.currentTamagotchi.LastPlay.Format("15:04")), "", 0, nil)
+	listPlay.AddItem(fmt.Sprintf("Current Happiness: %d/100", t.Happiness), "", 0, nil)
+	listPlay.AddItem(fmt.Sprintf("Current Energy: %d/100", t.Energy), "", 0, nil)
+	listPlay.AddItem(fmt.Sprintf("Current Weight: %.1f grams", t.Weight), "", 0, nil)
+	listPlay.AddItem(fmt.Sprintf("Last Play: %s", t.LastPlay.Format("15:04")), "", 0, nil)
 }
 
 func (a *App) playWithTamagotchi(gameIndex int) {
-	if !a.currentTamagotchi.IsAlive {
+	if gameIndex < 0 || gameIndex >= len(availableGames) {
 		return
 	}
 
 	game := availableGames[gameIndex]
+	now := time.Now()
 
-	// Check if tamagotchi has enough energy
-	if a.currentTamagotchi.Energy < 10 {
+	a.stateMu.Lock()
+	if a.currentTamagotchi == nil || !a.currentTamagotchi.IsAlive {
+		a.stateMu.Unlock()
 		return
 	}
 
-	// Increase happiness
+	if a.currentTamagotchi.Energy < 10 {
+		a.stateMu.Unlock()
+		return
+	}
+
 	a.currentTamagotchi.Happiness = min(100, a.currentTamagotchi.Happiness+game.Happiness)
-
-	// Change energy (can be negative)
 	a.currentTamagotchi.Energy = max(0, min(100, a.currentTamagotchi.Energy+game.Energy))
-
-	// Increase health
 	a.currentTamagotchi.Health = min(100, a.currentTamagotchi.Health+game.Health)
-
-	// Decrease weight
 	if a.currentTamagotchi.Weight-game.WeightLoss < 10.0 {
 		a.currentTamagotchi.Weight = 10.0
 	} else {
 		a.currentTamagotchi.Weight -= game.WeightLoss
 	}
+	a.currentTamagotchi.LastPlay = now
+	a.stateMu.Unlock()
 
-	// Update last play time
-	a.currentTamagotchi.LastPlay = time.Now()
-
-	// Add game event
+	a.updateConfigFromState()
 	a.addGameEvent("PLAY", fmt.Sprintf("Played %s! Happiness +%d, Energy %d", game.Name, game.Happiness, game.Energy))
-
-	// Update status page if it exists
-	if list := a.viewsList["status"]; list != nil {
-		a.generateStatusList(list)
-	}
 }
 
 func (a *App) playPage() (title string, content tview.Primitive) {

@@ -11,7 +11,11 @@ import (
 func (a *App) generateStatusList(listStatus *tview.List) {
 	listStatus.Clear()
 
-	t := a.currentTamagotchi
+	t, ok := a.tamagotchiSnapshot()
+	if !ok {
+		listStatus.AddItem("No tamagotchi data available.", "", 0, nil)
+		return
+	}
 
 	// Status header
 	status := "🟢 Alive"
@@ -80,8 +84,13 @@ func (a *App) generateStatusList(listStatus *tview.List) {
 	// Created date
 	listStatus.AddItem("", "", 0, nil) // Empty line
 	listStatus.AddItem("=== INFO ===", "", 0, nil)
-	listStatus.AddItem(fmt.Sprintf("Created: %s", t.Created.Format("2006-01-02 15:04")), "", 0, nil)
-	listStatus.AddItem(fmt.Sprintf("Time Alive: %s", time.Since(t.Created).Round(time.Hour)), "", 0, nil)
+	if t.Created.IsZero() {
+		listStatus.AddItem("Created: Unknown", "", 0, nil)
+		listStatus.AddItem("Time Alive: Unknown", "", 0, nil)
+	} else {
+		listStatus.AddItem(fmt.Sprintf("Created: %s", t.Created.Format("2006-01-02 15:04")), "", 0, nil)
+		listStatus.AddItem(fmt.Sprintf("Time Alive: %s", time.Since(t.Created).Round(time.Second)), "", 0, nil)
+	}
 }
 
 func (a *App) createProgressBar(current, max int) string {

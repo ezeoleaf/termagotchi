@@ -21,7 +21,13 @@ var availableFoods = []Food{
 func (a *App) generateFeedList(listFeed *tview.List) {
 	listFeed.Clear()
 
-	if !a.currentTamagotchi.IsAlive {
+	t, ok := a.tamagotchiSnapshot()
+	if !ok {
+		listFeed.AddItem("No tamagotchi available.", "", 0, nil)
+		return
+	}
+
+	if !t.IsAlive {
 		listFeed.AddItem("Your tamagotchi has passed away... 💔", "", 0, nil)
 		listFeed.AddItem("Cannot feed a dead tamagotchi", "", 0, nil)
 		return
@@ -37,49 +43,40 @@ func (a *App) generateFeedList(listFeed *tview.List) {
 				food.Name, food.Nutrition, food.Happiness, food.Energy, food.WeightGain),
 			"",
 			0,
-			func() {
-				a.feedTamagotchi(foodIndex)
-				a.generateFeedList(listFeed)
-			},
+			func() { a.feedTamagotchi(foodIndex) },
 		)
 	}
 
 	listFeed.AddItem("", "", 0, nil) // Empty line
 	listFeed.AddItem("=== FEEDING INFO ===", "", 0, nil)
-	listFeed.AddItem(fmt.Sprintf("Current Hunger: %d/100", a.currentTamagotchi.Hunger), "", 0, nil)
-	listFeed.AddItem(fmt.Sprintf("Current Weight: %.1f grams", a.currentTamagotchi.Weight), "", 0, nil)
-	listFeed.AddItem(fmt.Sprintf("Last Fed: %s", a.currentTamagotchi.LastFed.Format("15:04")), "", 0, nil)
+	listFeed.AddItem(fmt.Sprintf("Current Hunger: %d/100", t.Hunger), "", 0, nil)
+	listFeed.AddItem(fmt.Sprintf("Current Weight: %.1f grams", t.Weight), "", 0, nil)
+	listFeed.AddItem(fmt.Sprintf("Last Fed: %s", t.LastFed.Format("15:04")), "", 0, nil)
 }
 
 func (a *App) feedTamagotchi(foodIndex int) {
-	if !a.currentTamagotchi.IsAlive {
+	if foodIndex < 0 || foodIndex >= len(availableFoods) {
 		return
 	}
 
 	food := availableFoods[foodIndex]
+	now := time.Now()
 
-	// Reduce hunger
-	a.currentTamagotchi.Hunger = max(0, a.currentTamagotchi.Hunger-food.Nutrition)
-
-	// Increase happiness
-	a.currentTamagotchi.Happiness = min(100, a.currentTamagotchi.Happiness+food.Happiness)
-
-	// Increase energy
-	a.currentTamagotchi.Energy = min(100, a.currentTamagotchi.Energy+food.Energy)
-
-	// Increase weight
-	a.currentTamagotchi.Weight += food.WeightGain
-
-	// Update last fed time
-	a.currentTamagotchi.LastFed = time.Now()
-
-	// Add game event
-	a.addGameEvent("FEED", fmt.Sprintf("Fed %s! Hunger -%d, Happiness +%d", food.Name, food.Nutrition, food.Happiness))
-
-	// Update status page if it exists
-	if list := a.viewsList["status"]; list != nil {
-		a.generateStatusList(list)
+	a.stateMu.Lock()
+	if a.currentTamagotchi == nil || !a.currentTamagotchi.IsAlive {
+		a.stateMu.Unlock()
+		return
 	}
+
+	a.currentTamagotchi.Hunger = max(0, a.currentTamagotchi.Hunger-food.Nutrition)
+	a.currentTamagotchi.Happiness = min(100, a.currentTamagotchi.Happiness+food.Happiness)
+	a.currentTamagotchi.Energy = min(100, a.currentTamagotchi.Energy+food.Energy)
+	a.currentTamagotchi.Weight += food.WeightGain
+	a.currentTamagotchi.LastFed = now
+	a.stateMu.Unlock()
+
+	a.updateConfigFromState()
+	a.addGameEvent("FEED", fmt.Sprintf("Fed %s! Hunger -%d, Happiness +%d", food.Name, food.Nutrition, food.Happiness))
 }
 
 func (a *App) feedPage() (title string, content tview.Primitive) {

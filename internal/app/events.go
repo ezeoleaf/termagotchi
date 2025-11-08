@@ -9,7 +9,9 @@ import (
 func (a *App) generateEventsList(listEvents *tview.List) {
 	listEvents.Clear()
 
-	if len(a.gameEvents) == 0 {
+	events := a.eventsSnapshot()
+
+	if len(events) == 0 {
 		listEvents.AddItem("No events yet!", "", 0, nil)
 		listEvents.AddItem("Start interacting with your tamagotchi to see events.", "", 0, nil)
 		return
@@ -19,8 +21,8 @@ func (a *App) generateEventsList(listEvents *tview.List) {
 	listEvents.AddItem("", "", 0, nil) // Empty line
 
 	// Show events in reverse chronological order (newest first)
-	for i := len(a.gameEvents) - 1; i >= 0; i-- {
-		event := a.gameEvents[i]
+	for i := len(events) - 1; i >= 0; i-- {
+		event := events[i]
 		timeStr := event.Timestamp.Format("15:04")
 
 		// Add color coding based on event type
