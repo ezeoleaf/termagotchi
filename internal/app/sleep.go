@@ -25,7 +25,13 @@ var sleepOptions = []SleepOption{
 func (a *App) generateSleepList(listSleep *tview.List) {
 	listSleep.Clear()
 
-	if !a.currentTamagotchi.IsAlive {
+	t, ok := a.tamagotchiSnapshot()
+	if !ok {
+		listSleep.AddItem("No tamagotchi available.", "", 0, nil)
+		return
+	}
+
+	if !t.IsAlive {
 		listSleep.AddItem("Your tamagotchi has passed away... 💔", "", 0, nil)
 		listSleep.AddItem("Cannot put a dead tamagotchi to sleep", "", 0, nil)
 		return
@@ -41,22 +47,19 @@ func (a *App) generateSleepList(listSleep *tview.List) {
 				sleep.Name, sleep.EnergyGain, sleep.HealthGain, sleep.Happiness),
 			"",
 			0,
-			func() {
-				a.putTamagotchiToSleep(sleepIndex)
-				a.generateSleepList(listSleep)
-			},
+			func() { a.putTamagotchiToSleep(sleepIndex) },
 		)
 	}
 
 	listSleep.AddItem("", "", 0, nil) // Empty line
 	listSleep.AddItem("=== SLEEP INFO ===", "", 0, nil)
-	listSleep.AddItem(fmt.Sprintf("Current Energy: %d/100", a.currentTamagotchi.Energy), "", 0, nil)
-	listSleep.AddItem(fmt.Sprintf("Current Health: %d/100", a.currentTamagotchi.Health), "", 0, nil)
-	listSleep.AddItem(fmt.Sprintf("Current Happiness: %d/100", a.currentTamagotchi.Happiness), "", 0, nil)
-	listSleep.AddItem(fmt.Sprintf("Last Sleep: %s", a.currentTamagotchi.LastSleep.Format("15:04")), "", 0, nil)
+	listSleep.AddItem(fmt.Sprintf("Current Energy: %d/100", t.Energy), "", 0, nil)
+	listSleep.AddItem(fmt.Sprintf("Current Health: %d/100", t.Health), "", 0, nil)
+	listSleep.AddItem(fmt.Sprintf("Current Happiness: %d/100", t.Happiness), "", 0, nil)
+	listSleep.AddItem(fmt.Sprintf("Last Sleep: %s", t.LastSleep.Format("15:04")), "", 0, nil)
 
 	// Show sleep recommendation
-	if a.currentTamagotchi.Energy < 30 {
+	if t.Energy < 30 {
 		listSleep.AddItem("", "", 0, nil) // Empty line
 		listSleep.AddItem("💡 Recommendation: Your tamagotchi is tired!", "", 0, nil)
 		listSleep.AddItem("   Consider a longer sleep to restore energy.", "", 0, nil)
@@ -64,31 +67,27 @@ func (a *App) generateSleepList(listSleep *tview.List) {
 }
 
 func (a *App) putTamagotchiToSleep(sleepIndex int) {
-	if !a.currentTamagotchi.IsAlive {
+	if sleepIndex < 0 || sleepIndex >= len(sleepOptions) {
 		return
 	}
 
 	sleep := sleepOptions[sleepIndex]
+	now := time.Now()
 
-	// Increase energy
-	a.currentTamagotchi.Energy = min(100, a.currentTamagotchi.Energy+sleep.EnergyGain)
-
-	// Increase health
-	a.currentTamagotchi.Health = min(100, a.currentTamagotchi.Health+sleep.HealthGain)
-
-	// Increase happiness
-	a.currentTamagotchi.Happiness = min(100, a.currentTamagotchi.Happiness+sleep.Happiness)
-
-	// Update last sleep time
-	a.currentTamagotchi.LastSleep = time.Now()
-
-	// Add game event
-	a.addGameEvent("SLEEP", fmt.Sprintf("Slept for %s! Energy +%d, Health +%d", sleep.Name, sleep.EnergyGain, sleep.HealthGain))
-
-	// Update status page if it exists
-	if list := a.viewsList["status"]; list != nil {
-		a.generateStatusList(list)
+	a.stateMu.Lock()
+	if a.currentTamagotchi == nil || !a.currentTamagotchi.IsAlive {
+		a.stateMu.Unlock()
+		return
 	}
+
+	a.currentTamagotchi.Energy = min(100, a.currentTamagotchi.Energy+sleep.EnergyGain)
+	a.currentTamagotchi.Health = min(100, a.currentTamagotchi.Health+sleep.HealthGain)
+	a.currentTamagotchi.Happiness = min(100, a.currentTamagotchi.Happiness+sleep.Happiness)
+	a.currentTamagotchi.LastSleep = now
+	a.stateMu.Unlock()
+
+	a.updateConfigFromState()
+	a.addGameEvent("SLEEP", fmt.Sprintf("Slept for %s! Energy +%d, Health +%d", sleep.Name, sleep.EnergyGain, sleep.HealthGain))
 }
 
 func (a *App) sleepPage() (title string, content tview.Primitive) {
