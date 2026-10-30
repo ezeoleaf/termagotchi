@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -12,6 +13,18 @@ import (
 )
 
 const defaultUpdateInterval = 30 * time.Second
+
+func updateIntervalForSpeed(speed float64) (time.Duration, error) {
+	if speed <= 0 || math.IsNaN(speed) || math.IsInf(speed, 0) {
+		return 0, fmt.Errorf("game speed must be a finite number greater than zero")
+	}
+
+	interval := float64(defaultUpdateInterval) / speed
+	if interval < 1 || interval >= float64(1<<63) {
+		return 0, fmt.Errorf("game speed %v produces an unsupported update interval", speed)
+	}
+	return time.Duration(interval), nil
+}
 
 // App contains the tview application, the layout for the display, and the loaded config
 type App struct {
@@ -36,13 +49,21 @@ type App struct {
 }
 
 // NewApp returns an instance of the application, initialized with the provided config
-func NewApp(cfg *config.Config) *App {
+func NewApp(cfg *config.Config) (*App, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	updateInterval, err := updateIntervalForSpeed(cfg.Game.Speed)
+	if err != nil {
+		return nil, err
+	}
+
 	app := &App{
 		TApp:           tview.NewApplication(),
 		Config:         cfg,
 		viewsList:      make(map[string]*tview.List),
 		gameEvents:     make([]GameEvent, 0),
-		updateInterval: defaultUpdateInterval,
+		updateInterval: updateInterval,
 	}
 
 	app.initializeStateFromConfig()
@@ -79,7 +100,7 @@ func NewApp(cfg *config.Config) *App {
 	// Start the game loop
 	go app.gameLoop()
 
-	return app
+	return app, nil
 }
 
 func (a *App) initializeStateFromConfig() {
@@ -290,15 +311,50 @@ func (a *App) applyOfflineProgress() {
 		return
 	}
 
-	elapsed := a.Config.App.CurrentLogin.Sub(a.Config.App.LastLogin)
+	elapsed, forgiven := offlineProgressDuration(
+		a.Config.App.LastLogin,
+		a.Config.App.CurrentLogin,
+		a.Config.Game.GracePeriod.Duration(),
+	)
 	if elapsed <= 0 {
+		if forgiven > 0 {
+			a.addGameEvent("PROGRESS", fmt.Sprintf("Overnight grace covered %s of your time away.", formatDuration(forgiven)))
+		}
 		return
 	}
 
 	if a.advanceTime(elapsed) {
-		a.addGameEvent("PROGRESS", fmt.Sprintf("Time passed while you were away: %s.", formatDuration(elapsed)))
+		message := fmt.Sprintf("Time passed while you were away: %s.", formatDuration(elapsed))
+		if forgiven > 0 {
+			message = fmt.Sprintf("Time passed while you were away: %s (%s overnight grace applied).", formatDuration(elapsed), formatDuration(forgiven))
+		}
+		a.addGameEvent("PROGRESS", message)
 		a.updateConfigFromState()
 	}
+}
+
+func offlineProgressDuration(lastLogout, firstLogin time.Time, grace time.Duration) (time.Duration, time.Duration) {
+	elapsed := firstLogin.Sub(lastLogout)
+	if elapsed <= 0 {
+		return 0, 0
+	}
+	if grace <= 0 {
+		return elapsed, 0
+	}
+
+	logoutDate := lastLogout.In(firstLogin.Location())
+	loginDate := firstLogin.In(firstLogin.Location())
+	logoutYear, logoutMonth, logoutDay := logoutDate.Date()
+	loginYear, loginMonth, loginDay := loginDate.Date()
+	if logoutYear == loginYear && logoutMonth == loginMonth && logoutDay == loginDay {
+		return elapsed, 0
+	}
+
+	forgiven := grace
+	if forgiven > elapsed {
+		forgiven = elapsed
+	}
+	return elapsed - forgiven, forgiven
 }
 
 func (a *App) requestRefresh() {

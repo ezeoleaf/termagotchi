@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,7 +12,40 @@ import (
 
 type Config struct {
 	App        AppConfig        `yaml:"app"`
+	Game       GameConfig       `yaml:"game"`
 	Tamagotchi TamagotchiConfig `yaml:"tamagotchi"`
+}
+
+type GameConfig struct {
+	Speed       float64  `yaml:"speed"`
+	GracePeriod Duration `yaml:"grace_period"`
+}
+
+type Duration time.Duration
+
+func (d Duration) Duration() time.Duration {
+	return time.Duration(d)
+}
+
+func (d Duration) MarshalYAML() (any, error) {
+	return time.Duration(d).String(), nil
+}
+
+func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.ScalarNode {
+		return fmt.Errorf("grace_period must be a duration string")
+	}
+
+	duration, err := time.ParseDuration(node.Value)
+	if err != nil {
+		return fmt.Errorf("invalid grace_period %q: %w", node.Value, err)
+	}
+	if duration < 0 {
+		return fmt.Errorf("grace_period cannot be negative")
+	}
+
+	*d = Duration(duration)
+	return nil
 }
 
 type AppConfig struct {
@@ -53,6 +88,10 @@ func LoadConfig() (*Config, error) {
 			CurrentLogin:  time.Now(),
 			SaveDirectory: appConfigDir,
 		},
+		Game: GameConfig{
+			Speed:       1,
+			GracePeriod: Duration(8 * time.Hour),
+		},
 		Tamagotchi: TamagotchiConfig{
 			Name:      "Tammy",
 			Age:       0,
@@ -81,10 +120,27 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Update current login time
 	cfg.App.CurrentLogin = time.Now()
 
 	return cfg, nil
+}
+
+func (cfg *Config) Validate() error {
+	if cfg == nil {
+		return fmt.Errorf("config cannot be nil")
+	}
+	if cfg.Game.Speed <= 0 || math.IsNaN(cfg.Game.Speed) || math.IsInf(cfg.Game.Speed, 0) {
+		return fmt.Errorf("game speed must be a finite number greater than zero")
+	}
+	if cfg.Game.GracePeriod.Duration() < 0 {
+		return fmt.Errorf("game grace_period cannot be negative")
+	}
+	return nil
 }
 
 func SaveConfig(cfg *Config) error {

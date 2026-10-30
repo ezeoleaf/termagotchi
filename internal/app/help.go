@@ -32,6 +32,7 @@ func (a *App) generateHelpList(listHelp *tview.List) {
 	listHelp.AddItem("• Keep hunger low and happiness high", "", 0, nil)
 	listHelp.AddItem("• Low health can lead to death", "", 0, nil)
 	listHelp.AddItem("• Energy is needed for playing", "", 0, nil)
+	listHelp.AddItem("• Configure game speed and overnight grace in config.yml", "", 0, nil)
 	listHelp.AddItem("", "", 0, nil) // Empty line
 
 	listHelp.AddItem("🎯 TIPS FOR SUCCESS", "", 0, nil)

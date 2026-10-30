@@ -123,6 +123,17 @@ The game automatically saves your progress to:
 - **Linux**: `~/.config/termagotchi/config.yml`
 - **Windows**: `%APPDATA%\termagotchi\config.yml`
 
+The generated config includes these game options:
+
+```yaml
+game:
+  speed: 1.0
+  grace_period: 8h
+```
+
+- **Speed** is a multiplier for how quickly stats change: `1.0` is normal, `2.0` is twice as fast, and `0.5` is half speed.
+- **Grace period** is the amount of offline time forgiven when you log out on one calendar day and next log in on a later day. Set it to `0s` to disable the grace period.
+
 ## Screenshots
 
 Home

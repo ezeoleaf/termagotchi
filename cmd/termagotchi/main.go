@@ -13,6 +13,9 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	a := app.NewApp(cfg)
+	a, err := app.NewApp(cfg)
+	if err != nil {
+		log.Fatalf("failed to initialize game: %v", err)
+	}
 	a.Run()
 }
